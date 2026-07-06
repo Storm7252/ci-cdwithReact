@@ -1,0 +1,37 @@
+name: CI/CD Pipeline
+
+# WHEN should this run?
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  # ---------- JOB 1: the quality gate ----------
+  build-and-test:
+    runs-on: ubuntu-latest        # the fresh Linux VM
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4   # copies your repo onto the runner
+
+     - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci                 # like npm install but stricter/faster for CI
+
+      - name: Lint
+        run: npm run lint           # Vite's React template includes this
+
+      - name: Build
+        run: npm run build          # if this fails, the app is broken → gate closes
+
+  # ---------- JOB 2: deploy, only if job 1 passed ----------
+  deploy:
+    needs: build-and-test           # THIS is the gate. Won't run unless job 1 is green.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"
